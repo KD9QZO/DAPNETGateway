@@ -1,16 +1,42 @@
-Debug
-Release
-x64
+#
+# .gitignore
+#
+
+## BACKUP & TEMPORARY FILES ##
+
+*~
+*.bak
+*.tmp
+*.swp
+
+
+## BUILD ARTIFACTS ##
+
+Debug/
+Release/
+x64/
+**/Debug/
+**/Release/
+**/x64/
+build/
+**/build/
+build-*/
+**/build-*/
 DAPNETGateway
 *.o
 *.opendb
-*.bak
 *.obj
-*~
 *.sdf
 *.log
 *.zip
 *.exe
+
+
+## IDE FILES ##
+
 *.user
 *.VC.db
-.vs
+.vs/
+**/.vs/
+.vscode/
+**/.vscode/
