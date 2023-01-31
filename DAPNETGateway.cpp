@@ -18,14 +18,14 @@
 
 #include "DAPNETGateway.h"
 #include "StopWatch.h"
-#include "Version.h"
+#include "GitVersion.h"
 #include "Thread.h"
 #include "Timer.h"
 #include "Log.h"
 #include "REGEX.h"
 #include <regex>
 
-#if defined(_WIN32) || defined(_WIN64)
+#if (defined(_WIN32) || defined(_WIN64))
 #include <Windows.h>
 #else
 #include <sys/time.h>
@@ -35,10 +35,10 @@
 #include <pwd.h>
 #endif
 
-#if defined(_WIN32) || defined(_WIN64)
-const char* DEFAULT_INI_FILE = "DAPNETGateway.ini";
+#if (defined(_WIN32) || defined(_WIN64))
+const char *DEFAULT_INI_FILE = "DAPNETGateway.ini";
 #else
-const char* DEFAULT_INI_FILE = "/etc/DAPNETGateway.ini";
+const char *DEFAULT_INI_FILE = "/etc/DAPNETGateway.ini";
 #endif
 
 #include <algorithm>
@@ -51,8 +51,9 @@ const char* DEFAULT_INI_FILE = "/etc/DAPNETGateway.ini";
 #include <cassert>
 #include <cmath>
 
-const unsigned int FRAME_LENGTH_CODEWORDS    = 2U;
-const unsigned int BATCH_LENGTH_CODEWORDS    = 17U;
+
+const unsigned int FRAME_LENGTH_CODEWORDS = 2U;
+const unsigned int BATCH_LENGTH_CODEWORDS = 17U;
 const unsigned int PREAMBLE_LENGTH_CODEWORDS = BATCH_LENGTH_CODEWORDS + 1U;
 
 const unsigned int CODEWORD_TIME_US = 26667U;										// 26.667ms
@@ -61,26 +62,29 @@ const unsigned int BATCH_TIME_US = CODEWORD_TIME_US * BATCH_LENGTH_CODEWORDS;		/
 
 const unsigned int PREAMBLE_TIME_US = CODEWORD_TIME_US * PREAMBLE_LENGTH_CODEWORDS;	// 480.006ms
 
-const unsigned int SLOT_TIME_US       = 6400000U;									// 6.4s
-const unsigned int SLOT_TIME_MS       = SLOT_TIME_US / 1000U;						// 6.4s
+const unsigned int SLOT_TIME_US = 6400000U;											// 6.4s
+const unsigned int SLOT_TIME_MS = SLOT_TIME_US / 1000U;								// 6.4s
 const unsigned int CODEWORDS_PER_SLOT = SLOT_TIME_US / CODEWORD_TIME_US;			// 240
-const unsigned int BATCHES_PER_SLOT   = SLOT_TIME_US / BATCH_TIME_US;				// 14
+const unsigned int BATCHES_PER_SLOT = SLOT_TIME_US / BATCH_TIME_US;					// 14
 
-const unsigned char FUNCTIONAL_NUMERIC      = 0U;
-const unsigned char FUNCTIONAL_ALERT1       = 1U;
-const unsigned char FUNCTIONAL_ALERT2       = 2U;
+const unsigned char FUNCTIONAL_NUMERIC = 0U;
+const unsigned char FUNCTIONAL_ALERT1 = 1U;
+const unsigned char FUNCTIONAL_ALERT2 = 2U;
 const unsigned char FUNCTIONAL_ALPHANUMERIC = 3U;
 
 const unsigned int MAX_TIME_TO_HOLD_TIME_MESSAGES = 15000U;		// 15s
 
-int main(int argc, char** argv)
-{
-	const char* iniFile = DEFAULT_INI_FILE;
+
+
+int main(int argc, char *argv[]) {
+	const char *iniFile = DEFAULT_INI_FILE;
+
 	if (argc > 1) {
 		for (int currentArg = 1; currentArg < argc; ++currentArg) {
 			std::string arg = argv[currentArg];
+
 			if ((arg == "-v") || (arg == "--version")) {
-				::fprintf(stdout, "DAPNETGateway version %s\n", VERSION);
+				::fprintf(stdout, "DAPNETGateway version %s\n", gitversion);
 				return 0;
 			} else if (arg.substr(0, 1) == "-") {
 				::fprintf(stderr, "Usage: DAPNETGateway [-v|--version] [filename]\n");
@@ -91,7 +95,7 @@ int main(int argc, char** argv)
 		}
 	}
 
-	CDAPNETGateway* gateway = new CDAPNETGateway(std::string(iniFile));
+	CDAPNETGateway *gateway = new CDAPNETGateway(std::string(iniFile));
 
 	int ret = gateway->run();
 
@@ -100,36 +104,35 @@ int main(int argc, char** argv)
 	return ret;
 }
 
-CDAPNETGateway::CDAPNETGateway(const std::string& configFile) :
-m_conf(configFile),
-m_dapnetNetwork(NULL),
-m_pocsagNetwork(NULL),
-m_queue(),
-m_slotTimer(),
-m_schedule(NULL),
-m_allSlots(false),
-m_currentSlot(0U),
-m_sentCodewords(0U),
-m_regexBlacklist(),
-m_regexWhitelist(),
-m_mmdvmFree(false)
-{
+CDAPNETGateway::CDAPNETGateway(const std::string &configFile):
+		m_conf(configFile),
+		m_dapnetNetwork(NULL),
+		m_pocsagNetwork(NULL),
+		m_queue(),
+		m_slotTimer(),
+		m_schedule(NULL),
+		m_allSlots(false),
+		m_currentSlot(0U),
+		m_sentCodewords(0U),
+		m_regexBlacklist(),
+		m_regexWhitelist(),
+		m_mmdvmFree(false) {
 	CUDPSocket::startup();
 }
 
-CDAPNETGateway::~CDAPNETGateway()
-{
-	for (std::deque<CPOCSAGMessage*>::iterator it = m_queue.begin(); it != m_queue.end(); ++it)
+CDAPNETGateway::~CDAPNETGateway() {
+	for (std::deque<CPOCSAGMessage*>::iterator it = m_queue.begin(); it != m_queue.end(); ++it) {
 		delete *it;
+	}
 
 	m_queue.clear();
 
 	CUDPSocket::shutdown();
 }
 
-int CDAPNETGateway::run()
-{
+int CDAPNETGateway::run() {
 	bool ret = m_conf.read();
+
 	if (!ret) {
 		::fprintf(stderr, "DAPNETGateway: cannot read the .ini file\n");
 		return 1;
@@ -137,8 +140,9 @@ int CDAPNETGateway::run()
 
 	setlocale(LC_ALL, "C");
 
-#if !defined(_WIN32) && !defined(_WIN64)
+#if (!defined(_WIN32) && !defined(_WIN64))
 	bool m_daemon = m_conf.getDaemon();
+
 	if (m_daemon) {
 		// Create new process
 		pid_t pid = ::fork();
@@ -183,7 +187,7 @@ int CDAPNETGateway::run()
 				return -1;
 			}
 
-			// Double check it worked (AKA Paranoia) 
+			// Double check it worked (AKA Paranoia)
 			if (setuid(0) != -1) {
 				::fprintf(stderr, "It's possible to regain root - something is wrong!, exiting\n");
 				return -1;
@@ -193,9 +197,9 @@ int CDAPNETGateway::run()
 #endif
 
 #if !defined(_WIN32) && !defined(_WIN64)
-        ret = ::LogInitialise(m_daemon, m_conf.getLogFilePath(), m_conf.getLogFileRoot(), m_conf.getLogFileLevel(), m_conf.getLogDisplayLevel(), m_conf.getLogFileRotate());
+	ret = ::LogInitialise(m_daemon, m_conf.getLogFilePath(), m_conf.getLogFileRoot(), m_conf.getLogFileLevel(), m_conf.getLogDisplayLevel(), m_conf.getLogFileRotate());
 #else
-        ret = ::LogInitialise(false, m_conf.getLogFilePath(), m_conf.getLogFileRoot(), m_conf.getLogFileLevel(), m_conf.getLogDisplayLevel(), m_conf.getLogFileRotate());
+	ret = ::LogInitialise(false, m_conf.getLogFilePath(), m_conf.getLogFileRoot(), m_conf.getLogFileLevel(), m_conf.getLogDisplayLevel(), m_conf.getLogFileRotate());
 #endif
 	if (!ret) {
 		::fprintf(stderr, "DAPNETGateway: unable to open the log file\n");
@@ -210,14 +214,14 @@ int CDAPNETGateway::run()
 	}
 #endif
 
-	bool debug             = m_conf.getDAPNETDebug();
-
+	bool debug = m_conf.getDAPNETDebug();
 	std::string rptAddress = m_conf.getRptAddress();
 	unsigned short rptPort = m_conf.getRptPort();
-	std::string myAddress  = m_conf.getMyAddress();
-	unsigned short myPort  = m_conf.getMyPort();
+	std::string myAddress = m_conf.getMyAddress();
+	unsigned short myPort = m_conf.getMyPort();
 
 	m_pocsagNetwork = new CPOCSAGNetwork(myAddress, myPort, rptAddress, rptPort, debug);
+
 	ret = m_pocsagNetwork->open();
 	if (!ret) {
 		::LogError("Cannot open the repeater network port");
@@ -226,7 +230,7 @@ int CDAPNETGateway::run()
 		return 1;
 	}
 
-	std::string callsign      = m_conf.getCallsign();
+	std::string callsign = m_conf.getCallsign();
 	std::string dapnetAddress = m_conf.getDAPNETAddress();
 	unsigned short dapnetPort = m_conf.getDAPNETPort();
 	std::string dapnetAuthKey = m_conf.getDAPNETAuthKey();
@@ -234,11 +238,12 @@ int CDAPNETGateway::run()
 	if (dapnetAuthKey.length() == 0 || dapnetAuthKey == "TOPSECRET") {
 		::LogError("AuthKey not set or invalid");
 		::LogFinalise();
-		
+
 		return 1;
 	}
-		
-	m_dapnetNetwork = new CDAPNETNetwork(dapnetAddress, dapnetPort, callsign, dapnetAuthKey, VERSION, false, 1, debug);
+
+	m_dapnetNetwork = new CDAPNETNetwork(dapnetAddress, dapnetPort, callsign, dapnetAuthKey, gitversion, false, 1, debug);
+
 	ret = m_dapnetNetwork->open();
 	if (!ret) {
 		m_pocsagNetwork->close();
@@ -251,7 +256,7 @@ int CDAPNETGateway::run()
 		return 1;
 	}
 
-	LogMessage("Starting DAPNETGateway-%s", VERSION);
+	LogMessage("Starting DAPNETGateway-%s", gitversion);
 
 	ret = m_dapnetNetwork->login();
 	if (!ret) {
@@ -274,45 +279,50 @@ int CDAPNETGateway::run()
 
 	LogMessage("Initializing blacklist");
 	m_regexBlacklist = new CREGEX(m_conf.getblacklistRegexfile());
-	if (m_regexBlacklist->load()) 
+	if (m_regexBlacklist->load()) {
 		regexBlacklist = m_regexBlacklist->get();
+	}
 
 	LogMessage("Initializing whitelist");
 	m_regexWhitelist = new CREGEX(m_conf.getwhitelistRegexfile());
-		if (m_regexWhitelist->load())
+	if (m_regexWhitelist->load()) {
 		regexWhitelist = m_regexWhitelist->get();
+	}
 
 
-	for (;;) {
+	while (1) {
 		unsigned char buffer[200U];
 
 		if (m_pocsagNetwork->read(buffer) > 0U) {
 			switch (buffer[0U]) {
-			case 0x00U:
-				// The MMDVM is idle
-				if (!m_mmdvmFree) {
-					// LogDebug("*** MMDVM is free");
-					m_mmdvmFree = true;
-					m_sentCodewords = (m_slotTimer.elapsed() * 1000U) / CODEWORD_TIME_US;
-				}
-				break;
-			case 0xFFU:
-				// The MMDVM is busy
-				// LogDebug("*** MMDVM is busy");
-				m_mmdvmFree = false;
-				break;
-			default:
-				// The MMDVM is sending crap
-				LogWarning("Unknown data from the MMDVM - 0x%02X", buffer[0U]);
-				break;
+				case 0x00U:
+					// The MMDVM is idle
+					if (!m_mmdvmFree) {
+//						LogDebug("*** MMDVM is free");
+						m_mmdvmFree = true;
+						m_sentCodewords = (m_slotTimer.elapsed() * 1000U) / CODEWORD_TIME_US;
+					}
+					break;
+
+				case 0xFFU:
+					// The MMDVM is busy
+//					LogDebug("*** MMDVM is busy");
+					m_mmdvmFree = false;
+					break;
+
+				default:
+					// The MMDVM is sending crap
+					LogWarning("Unknown data from the MMDVM - 0x%02X", buffer[0U]);
+					break;
 			}
 		}
 
 		bool ok = m_dapnetNetwork->read();
-		if (!ok)
+		if (!ok) {
 			recover();
+		}
 
-		CPOCSAGMessage* message = m_dapnetNetwork->readMessage();
+		CPOCSAGMessage *message = m_dapnetNetwork->readMessage();
 		if (message != NULL) {
 			bool found = true;
 			bool blackListRIC = false;
@@ -329,12 +339,12 @@ int CDAPNETGateway::run()
 			if (blackListRIC)
 				LogDebug("Blacklist match: Not queueing message to %07u, type %u, message: \"%.*s\"", message->m_ric, message->m_type, message->m_length, message->m_message);
 
-			std::string  messageBody(reinterpret_cast<char*>(message->m_message));
-			//If we have a list of blacklist REGEXes, use them 
+			std::string messageBody(reinterpret_cast<char*>(message->m_message));
+			// If we have a list of blacklist REGEXes, use them
 			if (!regexBlacklist.empty()) {
 				for (std::regex regex : regexBlacklist) {
 					bool ret =  std::regex_match(messageBody,regex);
-					//If the regex matches the message body, don't send the message
+					// If the regex matches the message body, don't send the message
 					if (ret) {
 						blacklistRegexmatch = true;
 						LogDebug("Blacklist REGEX match: Not queueing message to %07u, type %u, message: \"%.*s\"", message->m_ric, message->m_type, message->m_length, messageBody.c_str());
@@ -345,7 +355,7 @@ int CDAPNETGateway::run()
 			if(!regexWhitelist.empty() && !blacklistRegexmatch) {
 				for (std::regex regex : regexWhitelist) {
 					bool ret =  std::regex_match(messageBody,regex);
-					//If the regex does not match the message body, don't send the message
+					// If the regex does not match the message body, don't send the message
 					if (!ret) {
 						whitelistRegexmatch = false;
 						LogDebug("No whitelist REGEX match: Not queueing message to %07u, type %u, message: \"%.*s\"", message->m_ric, message->m_type, message->m_length, messageBody.c_str());
@@ -358,15 +368,19 @@ int CDAPNETGateway::run()
 					case FUNCTIONAL_ALPHANUMERIC:
 						LogDebug("Queueing message to %07u, type %u, func Alphanumeric: \"%.*s\"", message->m_ric, message->m_type, message->m_length, message->m_message);
 						break;
+
 					case FUNCTIONAL_ALERT2:
 						LogDebug("Queueing message to %07u, type %u, func Alert 2: \"%.*s\"", message->m_ric, message->m_type, message->m_length, message->m_message);
 						break;
+
 					case FUNCTIONAL_NUMERIC:
 						LogDebug("Queueing message to %07u, type %u, func Numeric: \"%.*s\"", message->m_ric, message->m_type, message->m_length, message->m_message);
 						break;
+
 					case FUNCTIONAL_ALERT1:
 						LogDebug("Queueing message to %07u, type %u, func Alert 1", message->m_ric, message->m_type);
 						break;
+
 					default:
 						break;
 				}
@@ -379,7 +393,9 @@ int CDAPNETGateway::run()
 		unsigned int t = (m_slotTimer.time() / 100ULL) % 1024ULL;
 		unsigned int slot = t / 64U;
 		if (slot != m_currentSlot) {
-			// LogDebug("Start of slot %u", slot);
+#ifdef DEBUG
+			LogDebug("Start of slot %u", slot);
+#endif
 			m_currentSlot = slot;
 			if (m_schedule == NULL || m_currentSlot == 0U)
 				loadSchedule();
@@ -403,8 +419,7 @@ int CDAPNETGateway::run()
 	return 0;
 }
 
-void CDAPNETGateway::sendMessages()
-{
+void CDAPNETGateway::sendMessages() {
 	// If the MMDVM is busy, we can't send anything.
 	if (!m_mmdvmFree)
 		return;
@@ -437,7 +452,9 @@ void CDAPNETGateway::sendMessages()
 	// Do we have too much data already sent in this slot?
 	unsigned int totalCodewords = m_sentCodewords + PREAMBLE_LENGTH_CODEWORDS + codewords;
 	if (totalCodewords >= CODEWORDS_PER_SLOT) {
-		// LogDebug("Too many codewords sent in slot %u already %u + %u + %u = %u >= %u", m_currentSlot, m_sentCodewords, PREAMBLE_LENGTH_CODEWORDS, codewords, totalCodewords, CODEWORDS_PER_SLOT);
+#ifdef DEBUG
+		LogDebug("Too many codewords sent in slot %u already %u + %u + %u = %u >= %u", m_currentSlot, m_sentCodewords, PREAMBLE_LENGTH_CODEWORDS, codewords, totalCodewords, CODEWORDS_PER_SLOT);
+#endif
 		return;
 	}
 
@@ -445,7 +462,9 @@ void CDAPNETGateway::sendMessages()
 	unsigned int sendTime = (PREAMBLE_TIME_US + codewords * CODEWORD_TIME_US) / 1000U;
 	unsigned int timeLeft = SLOT_TIME_MS - m_slotTimer.elapsed();
 	if (sendTime >= timeLeft) {
-		// LogDebug("Too little time to send the message in slot %u, %u + %u + %u = %u >= %u = %u - %u", m_currentSlot, PREAMBLE_TIME_US, codewords, CODEWORD_TIME_US, sendTime, timeLeft, SLOT_TIME_MS, m_slotTimer.elapsed());
+#ifdef DEBUG
+		LogDebug("Too little time to send the message in slot %u, %u + %u + %u = %u >= %u = %u - %u", m_currentSlot, PREAMBLE_TIME_US, codewords, CODEWORD_TIME_US, sendTime, timeLeft, SLOT_TIME_MS, m_slotTimer.elapsed());
+#endif
 		return;
 	}
 
@@ -457,9 +476,7 @@ void CDAPNETGateway::sendMessages()
 	delete message;
 }
 
-bool CDAPNETGateway::recover()
-{
-
+bool CDAPNETGateway::recover() {
 	for (;;) {
 		m_dapnetNetwork->close();
 		bool ok = m_dapnetNetwork->open();
@@ -473,8 +490,7 @@ bool CDAPNETGateway::recover()
 	return false;
 }
 
-bool CDAPNETGateway::isTimeMessage(const CPOCSAGMessage* message) const
-{
+bool CDAPNETGateway::isTimeMessage(const CPOCSAGMessage *message) const {
 	if (message->m_type == 5U && message->m_functional == FUNCTIONAL_NUMERIC)
 		return true;
 
@@ -484,8 +500,7 @@ bool CDAPNETGateway::isTimeMessage(const CPOCSAGMessage* message) const
 	return false;
 }
 
-unsigned int CDAPNETGateway::calculateCodewords(const CPOCSAGMessage* message) const
-{
+unsigned int CDAPNETGateway::calculateCodewords(const CPOCSAGMessage *message) const {
 	assert(message != NULL);
 
 	unsigned int len = 0U;
@@ -493,10 +508,12 @@ unsigned int CDAPNETGateway::calculateCodewords(const CPOCSAGMessage* message) c
 		case FUNCTIONAL_NUMERIC:
 			len = message->m_length / 5U;			// For the number packing, five to a word
 			break;
+
 		case FUNCTIONAL_ALPHANUMERIC:
 		case FUNCTIONAL_ALERT2:
 			len = (message->m_length * 7U) / 20U;	// For the ASCII packing, 7/20 to a word
 			break;
+
 		case FUNCTIONAL_ALERT1:
 		default:
 			break;
@@ -512,9 +529,8 @@ unsigned int CDAPNETGateway::calculateCodewords(const CPOCSAGMessage* message) c
 	return len;
 }
 
-void CDAPNETGateway::loadSchedule()
-{
-	bool* schedule = m_dapnetNetwork->readSchedule();
+void CDAPNETGateway::loadSchedule() {
+	bool *schedule = m_dapnetNetwork->readSchedule();
 	if (schedule == NULL)
 		return;
 
@@ -539,8 +555,7 @@ void CDAPNETGateway::loadSchedule()
 		LogMessage("Loaded new schedule: %s", text.c_str());
 }
 
-bool CDAPNETGateway::sendMessage(CPOCSAGMessage* message) const
-{
+bool CDAPNETGateway::sendMessage(CPOCSAGMessage *message) const {
 	assert(message != NULL);
 
 	bool ret = isTimeMessage(message);
@@ -549,15 +564,19 @@ bool CDAPNETGateway::sendMessage(CPOCSAGMessage* message) const
 			case FUNCTIONAL_ALPHANUMERIC:
 				LogDebug("Rejecting message to %07u, type %u, func Alphanumeric: \"%.*s\"", message->m_ric, message->m_type, message->m_length, message->m_message);
 				break;
+
 			case FUNCTIONAL_ALERT2:
 				LogDebug("Rejecting message to %07u, type %u, func Alert 2: \"%.*s\"", message->m_ric, message->m_type, message->m_length, message->m_message);
 				break;
+
 			case FUNCTIONAL_NUMERIC:
 				LogDebug("Rejecting message to %07u, type %u, func Numeric: \"%.*s\"", message->m_ric, message->m_type, message->m_length, message->m_message);
 				break;
+
 			case FUNCTIONAL_ALERT1:
 				LogDebug("Rejecting message to %07u, type %u, func Alert 1", message->m_ric, message->m_type);
 				break;
+
 			default:
 				break;
 		}
@@ -568,15 +587,19 @@ bool CDAPNETGateway::sendMessage(CPOCSAGMessage* message) const
 			case FUNCTIONAL_ALPHANUMERIC:
 				LogMessage("Sending message in slot %u to %07u, type %u, func Alphanumeric: \"%.*s\"", m_currentSlot, message->m_ric, message->m_type, message->m_length, message->m_message);
 				break;
+
 			case FUNCTIONAL_ALERT2:
 				LogMessage("Sending message in slot %u to %07u, type %u, func Alert 2: \"%.*s\"", m_currentSlot, message->m_ric, message->m_type, message->m_length, message->m_message);
 				break;
+
 			case FUNCTIONAL_NUMERIC:
 				LogMessage("Sending message in slot %u to %07u, type %u, func Numeric: \"%.*s\"", m_currentSlot, message->m_ric, message->m_type, message->m_length, message->m_message);
 				break;
+
 			case FUNCTIONAL_ALERT1:
 				LogMessage("Sending message in slot %u to %07u, type %u, func Alert 1", m_currentSlot, message->m_ric, message->m_type);
 				break;
+
 			default:
 				break;
 		}
