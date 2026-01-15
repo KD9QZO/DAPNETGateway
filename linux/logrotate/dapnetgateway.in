@@ -1,0 +1,13 @@
+@DAPNETGATEWAY_LOG_DIR@/DAPNETGateway.log {
+	rotate 15
+	daily
+	missingok
+	notifempty
+	compress
+	delaycompress
+	su mmdvm mmdvm
+	sharedscripts
+	postrotate
+		/usr/bin/killall -HUP DAPNETGateway
+	endscript
+}
