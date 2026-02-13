@@ -8,11 +8,18 @@ OBJECTS = Conf.o DAPNETGateway.o DAPNETNetwork.o Log.o POCSAGMessage.o POCSAGNet
 
 all:		DAPNETGateway
 
-DAPNETGateway:	$(OBJECTS)
+DAPNETGateway:	GitVersion.h $(OBJECTS)
 		$(CXX) $(OBJECTS) $(CFLAGS) $(LIBS) -o DAPNETGateway
 
 %.o: %.cpp
 		$(CXX) $(CFLAGS) -c -o $@ $<
+
+DAPNETGateway.o: GitVersion.h FORCE
+
+.PHONY: GitVersion.h
+
+FORCE:
+
 
 install:
 		install -m 755 DAPNETGateway /usr/local/bin/
@@ -28,3 +35,4 @@ ifneq ("$(wildcard .git/index)","")
 else
 	echo "const char *gitversion = \"0000000000000000000000000000000000000000\";" > $@
 endif
+
